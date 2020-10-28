@@ -2,4 +2,4 @@
 
 ### Homework 0
 
-Click [here]() for my interesting R examples.
+[Here](https://bu-ie-582.github.io/fall20-fatmadumlupinar/example_homework_0.html) are my interesting R examples.
