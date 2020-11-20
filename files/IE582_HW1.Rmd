@@ -1,0 +1,885 @@
+---
+title: "IE582 Fall"
+author: "Fatma Nur Dumlupınar"
+date: "17 11 2020"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    number_sections: yes
+    code_folding: show
+    theme: journal
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+subtitle: Homework 1
+---
+
+
+# Required Packages and Data Preparation
+
+```{r message=FALSE, warning=FALSE}
+#Packages used
+
+library(ggplot2)
+library(dplyr)
+#Data Preparation
+
+season2018<-read.csv("C:/Users/fatma/Desktop/IE582/HW/hw1/data/2018-2019.csv")
+season2019<-read.csv("C:/Users/fatma/Desktop/IE582/HW/hw1/data/2019-2020.csv")
+season2020<-read.csv("C:/Users/fatma/Desktop/IE582/HW/hw1/data/2020-2021.csv")
+
+common_cols <- intersect(colnames(season2018), colnames(season2020[,1:56]))
+matches<-rbind(
+  subset(season2018, select = common_cols), 
+  subset(season2019, select = common_cols),
+  subset(season2020, select=common_cols)
+)
+
+matches<-matches[,2:41]
+matches$Date<-as.Date(matches$Date, format="%d/%m/%Y")
+
+```
+
+# TASK 1
+
+## Histogram Diagrams
+
+**Histogram of Home Score(Goals)**
+
+```{r message=FALSE, warning=FALSE}
+maxh<-max(matches$FTHG)
+
+histogram_home<-ggplot(matches,aes(x=FTHG))+geom_histogram(aes(fill=..count..))+
+  stat_bin(aes(y=..count.., label=..count..), geom="text", vjust=-.5)+
+  labs(y="Number of Games", 
+       x="Home Goals",
+       title="Distribution of Home Goals",
+       fill="Frequency")+
+  scale_x_continuous(breaks = seq(from = 0, to = maxh, by = 1))+
+  theme_minimal()
+histogram_home
+```
+
+**Histogram of Away Score(Goals)**
+
+```{r message=FALSE, warning=FALSE}
+maxa<-max(matches$FTAG)
+histogram_away<-ggplot(matches,aes(x=FTAG))+geom_histogram(aes(fill=..count..))+
+  stat_bin(aes(y=..count.., label=..count..), geom="text", vjust=-.5)+
+  labs(y="Number of Games", 
+       x="Away Goals",
+       title="Distribution of Away Goals",
+       fill="Frequency")+
+  scale_x_continuous(breaks = seq(from = 0, to = maxa, by = 1))+
+  theme_minimal()
+
+histogram_away
+
+```
+
+**Histogram of Home-Away Score(Goals)**
+
+```{r message=FALSE, warning=FALSE}
+mindiff<-min(matches$FTHG-matches$FTAG)
+maxdiff<-max(matches$FTHG-matches$FTAG)
+ggplot(matches,aes(x=FTHG-FTAG))+geom_histogram(aes(fill=..count..))+
+  stat_bin(aes(y=..count.., label=..count..), geom="text", vjust=-.5)+
+  labs(y="Number of Games", 
+       x="Home Goals - Away Goals",
+       title="Distribution of Home Goals-Away Goals",
+       fill="Frequency")+
+  scale_x_continuous(breaks = seq(from = mindiff, to = maxdiff, by = 1))+
+  theme_minimal()
+
+```
+
+**Histogram of |Home-Away Score(Goals)|**
+
+```{r message=FALSE, warning=FALSE}
+maxdiff<-max(abs(matches$FTHG-matches$FTAG))
+histogram_diff<-ggplot(matches,aes(x=abs(FTHG-FTAG)))+geom_histogram(aes(fill=..count..))+
+  stat_bin(aes(y=..count.., label=..count..), geom="text", vjust=-.5)+
+  labs(y="Number of Games", 
+       x="Difference between Home Goals and Away Goals",
+       title="Distribution of the Difference",
+       fill="Frequency")+
+  scale_x_continuous(breaks = seq(from = 0, to = maxdiff, by = 1))+
+  theme_minimal()
+histogram_diff
+
+```
+
+## Fitting to Poisson Distribution
+
+In order to check if the data fits to poisson distribution, the actual outcomes with the theoretical distribution are compared on a plot. This process is applied to Home Goals, Away Goals, and also to absolute value of their difference to eliminate negative values for a better fit.
+
+**Poisson Fitting for Home Goals**
+
+```{r message=FALSE, warning=FALSE}
+x_h <- matches$FTHG
+xfit_h<-seq(min(x_h),max(x_h),by=1)
+yfit_h<-dpois(xfit_h,lambda=mean(x_h))
+yfit_h <- yfit_h*length(x_h)
+fit_home<-data.frame(xfit_h,yfit_h)
+
+histogram_home+
+  geom_line(data=fit_home,aes(x=xfit_h,y=yfit_h))+
+  geom_point(data=fit_home,aes(x=xfit_h,y=yfit_h))
+
+```
+
+**Poisson Fitting for Away Goals**
+
+```{r message=FALSE, warning=FALSE}
+x_a<- matches$FTAG
+xfit_a<-seq(min(x_a),max(x_a),by=1)
+yfit_a<-dpois(xfit_a,lambda = mean(x_a))
+yfit_a <- yfit_a*length(x_a)
+fit_away<-data.frame(xfit_a,yfit_a)
+
+histogram_away+  
+  geom_line(data=fit_away,aes(x=xfit_a,y=yfit_a))+
+  geom_point(data=fit_away,aes(x=xfit_a,y=yfit_a))
+```
+
+
+**Poisson Fitting for |Home Goals-Away Goals|**
+
+```{r message=FALSE, warning=FALSE}
+x_d<- abs(matches$FTHG-matches$FTAG)
+xfit_d<-seq(min(x_d),max(x_d),by=1)
+yfit_d<-dpois(xfit_d,lambda = mean(x_d))
+yfit_d <- yfit_d*length(x_d)
+fit_diff<-data.frame(xfit_d,yfit_d)
+
+histogram_diff+  
+  geom_line(data=fit_diff,aes(x=xfit_d,y=yfit_d))+
+  geom_point(data=fit_diff,aes(x=xfit_d,y=yfit_d))
+```
+
+
+# TASK 2
+
+## Probability Calculation
+
+Probabilities are calculated using odds. Some of the values calculated are given below for each bookmaker:
+
+Those that have "H": Home win probability  
+Those that have "A": Away win probability  
+Those that have "D": Draw probability  
+
+```{r message=FALSE, warning=FALSE}
+###IW
+
+matches$B365H_p<-1/matches$B365H
+matches$B365D_p<-1/matches$B365D
+matches$B365A_p<-1/matches$B365A
+
+knitr::kable(head(matches[,41:43]), format="markdown")
+###BetAndWin
+
+matches$BWH_p<-1/matches$BWH
+matches$BWD_p<-1/matches$BWD
+matches$BWA_p<-1/matches$BWA
+
+knitr::kable(head(matches[,44:46]), format="markdown")
+
+###Some Bookmaker
+
+matches$IWH_p<-1/matches$IWH
+matches$IWD_p<-1/matches$IWD
+matches$IWA_p<-1/matches$IWA
+
+knitr::kable(head(matches[,47:49]), format="markdown")
+
+###Pinnacle
+
+matches$PSH_p<-1/matches$PSH
+matches$PSD_p<-1/matches$PSD
+matches$PSA_p<-1/matches$PSA
+
+knitr::kable(head(matches[,50:52]), format="markdown")
+
+
+```
+
+
+## Probability Calculation with the Normalization Formula
+
+Probabilities are calculated using normalization formula at this time.
+
+```{r message=FALSE, warning=FALSE}
+###Bet365
+
+sumB365<-matches$B365H_p+matches$B365D_p+matches$B365A_p
+
+matches$B365H_np<-matches$B365H_p/sumB365
+matches$B365D_np<-matches$B365D_p/sumB365
+matches$B365A_np<-matches$B365A_p/sumB365
+
+knitr::kable(head(matches[,53:55]), format="markdown")
+
+###BetAndWin
+
+sumBW<-matches$BWH_p+matches$BWD_p+matches$BWA_p
+
+matches$BWH_np<-matches$BWH_p/sumBW
+matches$BWD_np<-matches$BWD_p/sumBW
+matches$BWA_np<-matches$BWA_p/sumBW
+knitr::kable(head(matches[,56:58]), format="markdown")
+
+###Some Bookmaker
+sumIW<-matches$IWH_p+matches$IWD_p+matches$IWA_p
+
+matches$IWH_np<-matches$IWH_p/sumIW
+matches$IWD_np<-matches$IWD_p/sumIW
+matches$IWA_np<-matches$IWA_p/sumIW
+knitr::kable(head(matches[,59:61]), format="markdown")
+
+###Pinnacle
+
+sumPS<-matches$PSH_p+matches$PSD_p+matches$PSA_p
+
+matches$PSH_np<-matches$PSH_p/sumPS
+matches$PSD_np<-matches$PSD_p/sumPS
+matches$PSA_np<-matches$PSA_p/sumPS
+knitr::kable(head(matches[,62:64]), format="markdown")
+
+```
+
+## Comparison of the Estimated Probability and the Proposed Probability for Betting on "Draw"
+
+P(home win)-P(away win) values are discretized and estimated probability of draws is calculated for each bin. Then, the plot becomes ready to be analyzed to decide in which match one can potentially make money in the long run by betting on "Draw". We can do this by looking at the plot and say if the point lays below the estimated probability line it is possible to make money in the long run.  
+
+In the plots, green points are considered to compare with the black points because we are analyzing the "Draw" case. So, the matches whose green points are below the black points can be chosen to bet on "Draw". In order to compare proposed probabilities easily with the estimated probability, proposed probabilities of draw are binned in the second plot. In the third plot, estimated probabilities are added to the plot with the black points.  
+
+After the third plot, the green points below the black points, in other words the matches in which one can potentially make money in the long run, are counted. Then, these numbers for each bin are plotted in the forth plot for each bookmaker. When the number is high, bias is high. So, bins and bookmakers can be compared by looking at these numbers.
+
+**Bins**
+
+Bin intervals are:  
+
+1st bin: [-1,-0.8]  
+2nd bin: [-0.8,-0.6]  
+3rd bin: [-0.6,-0.4]  
+4th bin: [-0.4,-0.2]  
+5th bin: [-0.2,0]  
+6th bin: [0,0.2]  
+7th bin: [0.2,0.4]  
+8th bin: [0.4,0.6]  
+9th bin: [0.6,0.8]  
+10th bin:[0.8,1]  
+
+For each bin, the average of the limits is used. For example, -0.9 is used in the x axis for the 1st bin.  
+
+```{r message=FALSE, warning=FALSE}
+matches$B365_np_diff<-matches$B365H_np-matches$B365A_np
+matches$BW_np_diff<-matches$BWH_np-matches$BWA_np
+matches$IW_np_diff<-matches$IWH_np-matches$IWA_np
+matches$PS_np_diff<-matches$PSH_np-matches$PSA_np
+
+```
+
+**Bet365**
+
+```{r message=FALSE, warning=FALSE}
+Bet365_drawplot<-ggplot(data=matches,aes(x=B365_np_diff,y=B365D_np))+
+  geom_point(aes(color=FTR))+
+  labs(x="P(Home)-P(Away)", 
+       y="P(Tie)",
+       title="Bet365",
+       color="Full Time Result")+
+  scale_x_continuous(breaks = seq(-1, 1, by = 0.2))+
+  theme_light()
+
+Bet365_drawplot
+
+Bet365_drawplot_binned<-ggplot(data=matches%>%filter(FTR=="D"),aes(x=B365_np_diff,y=B365D_np))+
+  geom_point(color="lime green")+
+  labs(x="P(Home)-P(Away)", 
+       y="P(Tie)",
+       title="Bet365",
+       color="Full Time Result")+
+  scale_x_binned(breaks = seq(-1, 1, by = 0.2))+
+  theme_light()
+
+Bet365_drawplot_binned
+
+Bet365_bins<-matches%>%mutate(bin_B365=ifelse(B365_np_diff>=-1 & B365_np_diff<=-0.8,-0.9, ##1st bin
+                            ifelse(B365_np_diff>-0.8 & B365_np_diff<=-0.6,-0.7,          ## 2nd bin
+                                   ifelse(B365_np_diff>-0.6 & B365_np_diff<=-0.4,-0.5,  ##3rd bin
+                                          ifelse(B365_np_diff>-0.4 & B365_np_diff<=-0.2,-0.3,  ##4th bin
+                                                 ifelse(B365_np_diff>-0.2 & B365_np_diff<=0,-0.1, ##5th bin
+                                                        ifelse(B365_np_diff>0 & B365_np_diff<=0.2,0.1, ##6th bin
+                                                               ifelse(B365_np_diff>0.2 & B365_np_diff<=0.4,0.3, ##7th bin
+                                                                      ifelse(B365_np_diff>0.4 & B365_np_diff<=0.6,0.5, ##8th bin
+                                                                             ifelse(B365_np_diff>0.6 & B365_np_diff<=0.8,0.7, ##9th bin
+                                                                                    0.9))))))))))%>% ##10th bin
+  group_by(bin_B365)
+
+
+Bet365_estimated<-full_join(Bet365_bins%>%summarise(total=n()),Bet365_bins%>%filter(FTR=="D")%>%summarise(draw=n()))
+Bet365_estimated[is.na(Bet365_estimated)] <- 0
+Bet365_estimated<-Bet365_estimated%>%mutate(EstimatedProbability=draw/total)
+
+Bet365_drawplot_binned+
+  geom_point(data=Bet365_estimated,aes(x=bin_B365,y=EstimatedProbability))
+
+bias_Bet365<-merge(x = Bet365_bins[ , c("B365D_np", "bin_B365")],y = Bet365_estimated[ , c("EstimatedProbability", "bin_B365")], by = "bin_B365", all.x=TRUE)
+
+bias_Bet365<-bias_Bet365%>%mutate(is_bias=ifelse(EstimatedProbability-B365D_np>0,1,0))%>%group_by(bin_B365)%>%summarise(bias=sum(is_bias))
+
+ggplot(data=bias_Bet365,aes(x=bin_B365,y=bias))+
+  geom_line(color="grey")+
+  geom_point(shape=21,color="black",fill="lime green",size=6)+
+  scale_x_continuous(breaks=seq(from=-0.9,to=0.9,by=0.2))+
+  scale_y_continuous(breaks=seq(from=0,to=200,by=10))+
+  labs(title="Bet365",
+       y="Bias(Number of Matches)",
+       x="Bins")
+
+
+```
+
+*Total Bias for Bet365*
+
+```{r message=FALSE, warning=FALSE}
+bias_Bet365%>%summarise(total_bias=sum(bias))
+
+```
+
+**BetAndWin**
+
+```{r message=FALSE, warning=FALSE}
+BW_drawplot<-ggplot(data=matches,aes(x=BW_np_diff,y=BWD_np))+
+  geom_point(aes(color=FTR))+
+  labs(x="P(Home)-P(Away)", 
+       y="P(Tie)",
+       title="BetAndWin",
+       color="Full Time Result")+
+  scale_x_continuous(breaks = seq(-1, 1, by = 0.2))+
+  theme_light()
+BW_drawplot
+
+BW_drawplot_binned<-ggplot(data=matches%>%filter(FTR=="D"),aes(x=BW_np_diff,y=BWD_np))+
+  geom_point(color="lime green")+
+  labs(x="P(Home)-P(Away)", 
+       y="P(Tie)",
+       title="BetAndWin",
+       color="Full Time Result")+
+  scale_x_binned(breaks = seq(-1, 1, by = 0.2))+
+ theme_light()
+
+BW_bins<-matches%>%mutate(bin_BW=ifelse(BW_np_diff>=-1 & BW_np_diff<=-0.8,-0.9,
+                                              ifelse(BW_np_diff>-0.8 & BW_np_diff<=-0.6,-0.7,
+                                                     ifelse(BW_np_diff>-0.6 & BW_np_diff<=-0.4,-0.5,
+                                                            ifelse(BW_np_diff>-0.4 & BW_np_diff<=-0.2,-0.3,
+                                                                   ifelse(BW_np_diff>-0.2 & BW_np_diff<=0,-0.1,
+                                                                          ifelse(BW_np_diff>0 & BW_np_diff<=0.2,0.1,
+                                                                                 ifelse(BW_np_diff>0.2 & BW_np_diff<=0.4,0.3,
+                                                                                        ifelse(BW_np_diff>0.4 & BW_np_diff<=0.6,0.5,
+                                                                                               ifelse(BW_np_diff>0.6 & BW_np_diff<=0.8,0.7,
+                                                                                                      0.9))))))))))%>%
+  group_by(bin_BW)
+
+BW_drawplot_binned
+BW_estimated<-full_join(BW_bins%>%summarise(total=n()),BW_bins%>%filter(FTR=="D")%>%summarise(draw=n()))
+BW_estimated[is.na(BW_estimated)] <- 0
+BW_estimated<-BW_estimated%>%mutate(EstimatedProbability=draw/total)
+
+BW_drawplot_binned+
+  geom_point(data=BW_estimated,aes(x=bin_BW,y=EstimatedProbability))
+
+bias_BW<-merge(x =BW_bins[ , c("BWD_np", "bin_BW")],y = BW_estimated[ , c("EstimatedProbability", "bin_BW")], by = "bin_BW", all.x=TRUE)
+
+bias_BW<-bias_BW%>%mutate(is_bias=ifelse(EstimatedProbability-BWD_np>0,1,0))%>%group_by(bin_BW)%>%summarise(bias=sum(is_bias))
+
+ggplot(data=bias_BW,aes(x=bin_BW,y=bias))+
+  geom_line(color="grey")+
+  geom_point(shape=21,color="black",fill="lime green",size=6)+
+  scale_x_continuous(breaks=seq(from=-0.9,to=0.9,by=0.2))+
+  scale_y_continuous(breaks=seq(from=0,to=200,by=10))+
+  labs(title="BetAndWin",
+       y="Bias(Number of Matches)",
+       x="Bins")
+
+
+```
+
+*Total Bias for BetAndWin*
+
+```{r message=FALSE, warning=FALSE}
+bias_BW%>%summarise(total_bias=sum(bias))
+
+```
+
+**Some Bookmaker**
+
+```{r message=FALSE, warning=FALSE}
+IW_drawplot<-ggplot(data=matches,aes(x=IW_np_diff,y=IWD_np))+
+  geom_point(aes(color=FTR))+
+  labs(x="P(Home)-P(Away)", 
+       y="P(Tie)",
+       title="Some Bookmaker",
+       color="Full Time Result")+
+  scale_x_continuous(breaks = seq(-1, 1, by = 0.2))+
+  theme_light()
+IW_drawplot
+IW_drawplot_binned<-ggplot(data=matches%>%filter(FTR=="D"),aes(x=IW_np_diff,y=IWD_np))+
+  geom_point(color="lime green")+
+  labs(x="P(Home)-P(Away)", 
+       y="P(Tie)",
+       title="Some Bookmaker",
+       color="Full Time Result")+
+  scale_x_binned(breaks = seq(-1, 1, by = 0.2))+
+  theme_light()
+ IW_drawplot_binned
+IW_bins<-matches%>%mutate(bin_IW=ifelse(IW_np_diff>=-1 & IW_np_diff<=-0.8,-0.9,
+                                              ifelse(IW_np_diff>-0.8 & IW_np_diff<=-0.6,-0.7,
+                                                     ifelse(IW_np_diff>-0.6 & IW_np_diff<=-0.4,-0.5,
+                                                            ifelse(IW_np_diff>-0.4 & IW_np_diff<=-0.2,-0.3,
+                                                                   ifelse(IW_np_diff>-0.2 & IW_np_diff<=0,-0.1,
+                                                                          ifelse(IW_np_diff>0 & IW_np_diff<=0.2,0.1,
+                                                                                 ifelse(IW_np_diff>0.2 & IW_np_diff<=0.4,0.3,
+                                                                                        ifelse(IW_np_diff>0.4 & IW_np_diff<=0.6,0.5,
+                                                                                               ifelse(IW_np_diff>0.6 & IW_np_diff<=0.8,0.7,
+                                                                                                      0.9))))))))))%>%
+  group_by(bin_IW)
+
+
+IW_estimated<-full_join(IW_bins%>%summarise(total=n()),IW_bins%>%filter(FTR=="D")%>%summarise(draw=n()))
+IW_estimated[is.na(IW_estimated)] <- 0
+IW_estimated<-IW_estimated%>%mutate(EstimatedProbability=draw/total)
+
+IW_drawplot_binned+
+  geom_point(data=IW_estimated,aes(x=bin_IW,y=EstimatedProbability))
+
+bias_IW<-merge(x =IW_bins[ , c("IWD_np", "bin_IW")],y = IW_estimated[ , c("EstimatedProbability", "bin_IW")], by = "bin_IW", all.x=TRUE)
+
+bias_IW<-bias_IW%>%mutate(is_bias=ifelse(EstimatedProbability-IWD_np>0,1,0))%>%group_by(bin_IW)%>%summarise(bias=sum(is_bias))
+
+ggplot(data=bias_IW,aes(x=bin_IW,y=bias))+
+  geom_line(color="grey")+
+  geom_point(shape=21,color="black",fill="lime green",size=6)+
+  scale_x_continuous(breaks=seq(from=-0.9,to=0.9,by=0.2))+
+  scale_y_continuous(breaks=seq(from=0,to=200,by=10))+
+  labs(title="Some Bookmaker",
+       y="Bias(Number of Matches)",
+       x="Bins")
+
+
+```
+
+
+*Total Bias for some Bookmaker*
+
+```{r message=FALSE, warning=FALSE}
+bias_IW%>%summarise(total_bias=sum(bias))
+
+```
+
+**Pinnacle**
+
+```{r message=FALSE, warning=FALSE}
+PS_drawplot<-ggplot(data=matches,aes(x=PS_np_diff,y=PSD_np))+
+  geom_point(aes(color=FTR))+
+  labs(x="P(Home)-P(Away)", 
+       y="P(Tie)",
+       title="Pinnacle",
+       color="Full Time Result")+
+  scale_x_continuous(breaks = seq(-1, 1, by = 0.2))+
+  theme_light()
+
+PS_drawplot
+PS_drawplot_binned<-ggplot(data=matches%>%filter(FTR=="D"),aes(x=PS_np_diff,y=PSD_np))+
+  geom_point(color="lime green")+
+  labs(x="P(Home)-P(Away)", 
+       y="P(Tie)",
+       title="Pinnacle",
+       color="Full Time Result")+
+  scale_x_binned(breaks = seq(-1, 1, by = 0.2))+
+  theme_light()
+PS_drawplot_binned
+PS_bins<-matches%>%mutate(bin_PS=ifelse(PS_np_diff>=-1 & PS_np_diff<=-0.8,-0.9,
+                                        ifelse(PS_np_diff>-0.8 & PS_np_diff<=-0.6,-0.7,
+                                               ifelse(PS_np_diff>-0.6 & PS_np_diff<=-0.4,-0.5,
+                                                      ifelse(PS_np_diff>-0.4 & PS_np_diff<=-0.2,-0.3,
+                                                             ifelse(PS_np_diff>-0.2 & PS_np_diff<=0,-0.1,
+                                                                    ifelse(PS_np_diff>0 & PS_np_diff<=0.2,0.1,
+                                                                           ifelse(PS_np_diff>0.2 & PS_np_diff<=0.4,0.3,
+                                                                                  ifelse(PS_np_diff>0.4 & PS_np_diff<=0.6,0.5,
+                                                                                         ifelse(PS_np_diff>0.6 & PS_np_diff<=0.8,0.7,
+                                                                                                0.9))))))))))%>%
+  group_by(bin_PS)
+
+
+PS_estimated<-full_join(PS_bins%>%summarise(total=n()),PS_bins%>%filter(FTR=="D")%>%summarise(draw=n()))
+PS_estimated[is.na(PS_estimated)] <- 0
+PS_estimated<-PS_estimated%>%mutate(EstimatedProbability=draw/total)
+
+PS_drawplot_binned+
+  geom_point(data=PS_estimated,aes(x=bin_PS,y=EstimatedProbability))
+
+bias_PS<-merge(x =PS_bins[ , c("PSD_np", "bin_PS")],y = PS_estimated[ , c("EstimatedProbability", "bin_PS")], by = "bin_PS", all.x=TRUE)
+
+bias_PS<-bias_PS%>%mutate(is_bias=ifelse(EstimatedProbability-PSD_np>0,1,0))%>%group_by(bin_PS)%>%summarise(bias=sum(is_bias))
+
+ggplot(data=bias_PS,aes(x=bin_PS,y=bias))+
+  geom_line(color="grey")+
+  geom_point(shape=21,color="black",fill="lime green",size=6)+
+  scale_x_continuous(breaks=seq(from=-0.9,to=0.9,by=0.2))+
+  scale_y_continuous(breaks=seq(from=0,to=200,by=10))+
+  labs(title="Pinnacle",
+       y="Bias(Number of Matches)",
+       x="Bins")
+
+```
+
+
+
+*Total Bias for Pinnacle*
+
+```{r message=FALSE, warning=FALSE}
+bias_PS%>%summarise(total_bias=sum(bias))
+
+```
+
+## Comments about the Analysis
+
+*Bet365*  
+
+Bins that have the highest biases             : 6th and 7th  
+Total bias                                    : 300  
+Ratio (Total Bias/Total Number of Matches)    : 0.36  
+
+*BetAndWin*  
+
+Bins that have the highest biases             : 5th and 6th  
+Total bias                                    : 293  
+Ratio (Total Bias/Total Number of Matches)    : 0.35  
+
+*Some Bookmaker*  
+
+Bins that have the highest biases             : 5th and 6th  
+Total bias                                    : 258  
+Ratio (Total Bias/Total Number of Matches)    : 0.31  
+
+*Pinnacle*  
+
+Bins that have the highest biases             : 6th and 8th  
+Total bias                                    : 273  
+Ratio (Total Bias/Total Number of Matches)    : 0.33   
+
+From the results, the number of matches whose odds are not well proposed is high in 6th range for all bookmakers. The number is also high in 7th, 5th and 8th bins.  
+In addition, the bias ratio of Bet365 is the highest one.  
+
+# TASK 3
+
+## Comparison of the Estimated Probability and the Proposed Probability with the Filtered Data for Betting on "Draw" 
+
+Matches in which there are red cards are filtered.
+
+```{r message=FALSE, warning=FALSE}
+matches_filtered<-matches%>%filter(HR==0 & AR== 0)
+
+```
+
+
+**Bet365**
+
+```{r message=FALSE, warning=FALSE}
+
+Bet365_filtered_drawplot<-ggplot(data=matches_filtered,aes(x=B365_np_diff,y=B365D_np))+
+  geom_point(aes(color=FTR))+
+  labs(x="P(Home)-P(Away)", 
+       y="P(Tie)",
+       title="Bet365",
+       color="Full Time Result")+
+  scale_x_continuous(breaks = seq(-1, 1, by = 0.2))+
+  theme_light()
+Bet365_filtered_drawplot
+  
+Bet365_filtered_drawplot_binned<-ggplot(data=matches_filtered%>%filter(FTR=="D"),aes(x=B365_np_diff,y=B365D_np))+
+  geom_point(color="lime green")+
+  labs(x="P(Home)-P(Away)", 
+       y="P(Tie)",
+       title="Bet365",
+       color="Full Time Result")+
+  scale_x_binned(breaks = seq(-1, 1, by = 0.2))+
+  theme_light()
+Bet365_filtered_drawplot_binned
+Bet365_bins<-matches_filtered%>%mutate(bin_B365=ifelse(B365_np_diff>=-1 & B365_np_diff<=-0.8,-0.9,
+                                              ifelse(B365_np_diff>-0.8 & B365_np_diff<=-0.6,-0.7,
+                                                     ifelse(B365_np_diff>-0.6 & B365_np_diff<=-0.4,-0.5,
+                                                            ifelse(B365_np_diff>-0.4 & B365_np_diff<=-0.2,-0.3,
+                                                                   ifelse(B365_np_diff>-0.2 & B365_np_diff<=0,-0.1,
+                                                                          ifelse(B365_np_diff>0 & B365_np_diff<=0.2,0.1,
+                                                                                 ifelse(B365_np_diff>0.2 & B365_np_diff<=0.4,0.3,
+                                                                                        ifelse(B365_np_diff>0.4 & B365_np_diff<=0.6,0.5,
+                                                                                               ifelse(B365_np_diff>0.6 & B365_np_diff<=0.8,0.7,
+                                                                                                      0.9))))))))))%>%
+  group_by(bin_B365)
+
+
+Bet365_estimated<-full_join(Bet365_bins%>%summarise(total=n()),Bet365_bins%>%filter(FTR=="D")%>%summarise(draw=n()))
+Bet365_estimated[is.na(Bet365_estimated)] <- 0
+Bet365_estimated<-Bet365_estimated%>%mutate(EstimatedProbability=draw/total)
+
+Bet365_filtered_drawplot_binned+
+  geom_point(data=Bet365_estimated,aes(x=bin_B365,y=EstimatedProbability))
+
+bias_Bet365<-merge(x =Bet365_bins[ , c("B365D_np", "bin_B365")],y = Bet365_estimated[ , c("EstimatedProbability", "bin_B365")], by = "bin_B365", all.x=TRUE)
+
+bias_Bet365<-bias_Bet365%>%mutate(is_bias=ifelse(EstimatedProbability-B365D_np>0,1,0))%>%group_by(bin_B365)%>%summarise(bias=sum(is_bias))
+
+ggplot(data=bias_Bet365,aes(x=bin_B365,y=bias))+
+  geom_line(color="grey")+
+  geom_point(shape=21,color="black",fill="lime green",size=6)+
+  scale_x_continuous(breaks=seq(from=-0.9,to=0.9,by=0.2))+
+  scale_y_continuous(breaks=seq(from=0,to=200,by=10))+
+    labs(title="Bet365",
+         y="Bias(Number of Matches)",
+         x="Bins")
+
+
+
+```
+
+
+*Total Bias for Bet365*
+
+```{r message=FALSE, warning=FALSE}
+bias_Bet365%>%summarise(total_bias=sum(bias))
+
+```
+
+**BetAndWin**
+
+```{r message=FALSE, warning=FALSE}
+BW_filtered_drawplot<-ggplot(data=matches_filtered,aes(x=BW_np_diff,y=BWD_np))+
+  geom_point(aes(color=FTR))+
+  labs(x="P(Home)-P(Away)", 
+       y="P(Tie)",
+       title="BetAndWin",
+       color="Full Time Result")+
+  scale_x_continuous(breaks = seq(-1, 1, by = 0.2))+
+  theme_light()
+BW_filtered_drawplot
+
+BW_filtered_drawplot_binned<-ggplot(data=matches_filtered%>%filter(FTR=="D"),aes(x=BW_np_diff,y=BWD_np))+
+  geom_point(color="lime green")+
+  labs(x="P(Home)-P(Away)", 
+       y="P(Tie)",
+       title="BetAndWin",
+       color="Full Time Result")+
+  scale_x_binned(breaks = seq(-1, 1, by = 0.2))+
+  theme_light()
+BW_filtered_drawplot_binned
+BW_bins<-matches_filtered%>%mutate(bin_BW=ifelse(BW_np_diff>=-1 & BW_np_diff<=-0.8,-0.9,
+                                        ifelse(BW_np_diff>-0.8 & BW_np_diff<=-0.6,-0.7,
+                                               ifelse(BW_np_diff>-0.6 & BW_np_diff<=-0.4,-0.5,
+                                                      ifelse(BW_np_diff>-0.4 & BW_np_diff<=-0.2,-0.3,
+                                                             ifelse(BW_np_diff>-0.2 & BW_np_diff<=0,-0.1,
+                                                                    ifelse(BW_np_diff>0 & BW_np_diff<=0.2,0.1,
+                                                                           ifelse(BW_np_diff>0.2 & BW_np_diff<=0.4,0.3,
+                                                                                  ifelse(BW_np_diff>0.4 & BW_np_diff<=0.6,0.5,
+                                                                                         ifelse(BW_np_diff>0.6 & BW_np_diff<=0.8,0.7,
+                                                                                                0.9))))))))))%>%
+  group_by(bin_BW)
+
+
+BW_estimated<-full_join(BW_bins%>%summarise(total=n()),BW_bins%>%filter(FTR=="D")%>%summarise(draw=n()))
+BW_estimated[is.na(BW_estimated)] <- 0
+BW_estimated<-BW_estimated%>%mutate(EstimatedProbability=draw/total)
+
+BW_filtered_drawplot_binned+
+  geom_point(data=BW_estimated,aes(x=bin_BW,y=EstimatedProbability))
+
+bias_BW<-merge(x =BW_bins[ , c("BWD_np", "bin_BW")],y = BW_estimated[ , c("EstimatedProbability", "bin_BW")], by = "bin_BW", all.x=TRUE)
+
+bias_BW<-bias_BW%>%mutate(is_bias=ifelse(EstimatedProbability-BWD_np>0,1,0))%>%group_by(bin_BW)%>%summarise(bias=sum(is_bias))
+
+ggplot(data=bias_BW,aes(x=bin_BW,y=bias))+
+  geom_line(color="grey")+
+  geom_point(shape=21,color="black",fill="lime green",size=6)+
+  scale_x_continuous(breaks=seq(from=-0.9,to=0.9,by=0.2))+
+  scale_y_continuous(breaks=seq(from=0,to=200,by=10))+
+  labs(title="BetAndWin",
+       y="Bias(Number of Matches)",
+       x="Bins")
+
+
+
+```
+
+*Total Bias for BetAndWin*
+
+```{r message=FALSE, warning=FALSE}
+bias_BW%>%summarise(total_bias=sum(bias))
+
+```
+
+**Some Bookmaker**
+
+```{r message=FALSE, warning=FALSE}
+IW_filtered_drawplot<-ggplot(data=matches_filtered,aes(x=IW_np_diff,y=IWD_np))+
+  geom_point(aes(color=FTR))+
+  labs(x="P(Home)-P(Away)", 
+       y="P(Tie)",
+       title="Some Bookmaker",
+       color="Full Time Result")+
+  scale_x_continuous(breaks = seq(-1, 1, by = 0.2))+
+  theme_light()
+IW_filtered_drawplot
+IW_filtered_drawplot_binned<-ggplot(data=matches_filtered%>%filter(FTR=="D"),aes(x=IW_np_diff,y=IWD_np))+
+  geom_point(color="lime green")+
+  labs(x="P(Home)-P(Away)", 
+       y="P(Tie)",
+       title="Some Bookmaker",
+       color="Full Time Result")+
+  scale_x_binned(breaks = seq(-1, 1, by = 0.2))+
+  theme_light()
+IW_filtered_drawplot_binned
+IW_bins<-matches_filtered%>%mutate(bin_IW=ifelse(IW_np_diff>=-1 & IW_np_diff<=-0.8,-0.9,
+                                        ifelse(IW_np_diff>-0.8 & IW_np_diff<=-0.6,-0.7,
+                                               ifelse(IW_np_diff>-0.6 & IW_np_diff<=-0.4,-0.5,
+                                                      ifelse(IW_np_diff>-0.4 & IW_np_diff<=-0.2,-0.3,
+                                                             ifelse(IW_np_diff>-0.2 & IW_np_diff<=0,-0.1,
+                                                                    ifelse(IW_np_diff>0 & IW_np_diff<=0.2,0.1,
+                                                                           ifelse(IW_np_diff>0.2 & IW_np_diff<=0.4,0.3,
+                                                                                  ifelse(IW_np_diff>0.4 & IW_np_diff<=0.6,0.5,
+                                                                                         ifelse(IW_np_diff>0.6 & IW_np_diff<=0.8,0.7,
+                                                                                                0.9))))))))))%>%
+  group_by(bin_IW)
+
+
+IW_estimated<-full_join(IW_bins%>%summarise(total=n()),IW_bins%>%filter(FTR=="D")%>%summarise(draw=n()))
+IW_estimated[is.na(IW_estimated)] <- 0
+IW_estimated<-IW_estimated%>%mutate(EstimatedProbability=draw/total)
+
+IW_filtered_drawplot_binned+
+  geom_point(data=IW_estimated,aes(x=bin_IW,y=EstimatedProbability))
+
+bias_IW<-merge(x =IW_bins[ , c("IWD_np", "bin_IW")],y = IW_estimated[ , c("EstimatedProbability", "bin_IW")], by = "bin_IW", all.x=TRUE)
+
+bias_IW<-bias_IW%>%mutate(is_bias=ifelse(EstimatedProbability-IWD_np>0,1,0))%>%group_by(bin_IW)%>%summarise(bias=sum(is_bias))
+
+ggplot(data=bias_IW,aes(x=bin_IW,y=bias))+
+  geom_line(color="grey")+
+  geom_point(shape=21,color="black",fill="lime green",size=6)+
+  scale_x_continuous(breaks=seq(from=-0.9,to=0.9,by=0.2))+
+  scale_y_continuous(breaks=seq(from=0,to=200,by=10))+
+  labs(title="Some Bookmaker",
+       y="Bias(Number of Matches)",
+       x="Bins")
+
+
+```
+
+*Total Bias for Some Bookmaker*
+
+```{r message=FALSE, warning=FALSE}
+bias_IW%>%summarise(total_bias=sum(bias))
+
+```
+
+**Pinnacle**
+
+```{r message=FALSE, warning=FALSE}
+PS_filtered_drawplot<-ggplot(data=matches_filtered,aes(x=PS_np_diff,y=PSD_np))+
+  geom_point(aes(color=FTR))+
+  labs(x="P(Home)-P(Away)", 
+       y="P(Tie)",
+       title="Pinnacle",
+       color="Full Time Result")+
+  scale_x_continuous(breaks = seq(-1, 1, by = 0.2))+
+  theme_light()
+PS_filtered_drawplot
+PS_filtered_drawplot_binned<-ggplot(data=matches_filtered%>%filter(FTR=="D"),aes(x=PS_np_diff,y=PSD_np))+
+  geom_point(color="lime green")+
+  labs(x="P(Home)-P(Away)", 
+       y="P(Tie)",
+       title="Pinnacle",
+       color="Full Time Result")+
+  scale_x_binned(breaks = seq(-1, 1, by = 0.2))+
+  theme_light()
+PS_filtered_drawplot_binned
+PS_bins<-matches_filtered%>%mutate(bin_PS=ifelse(PS_np_diff>=-1 & PS_np_diff<=-0.8,-0.9,
+                                        ifelse(PS_np_diff>-0.8 & PS_np_diff<=-0.6,-0.7,
+                                               ifelse(PS_np_diff>-0.6 & PS_np_diff<=-0.4,-0.5,
+                                                      ifelse(PS_np_diff>-0.4 & PS_np_diff<=-0.2,-0.3,
+                                                             ifelse(PS_np_diff>-0.2 & PS_np_diff<=0,-0.1,
+                                                                    ifelse(PS_np_diff>0 & PS_np_diff<=0.2,0.1,
+                                                                           ifelse(PS_np_diff>0.2 & PS_np_diff<=0.4,0.3,
+                                                                                  ifelse(PS_np_diff>0.4 & PS_np_diff<=0.6,0.5,
+                                                                                         ifelse(PS_np_diff>0.6 & PS_np_diff<=0.8,0.7,
+                                                                                                0.9))))))))))%>%
+  group_by(bin_PS)
+
+
+PS_estimated<-full_join(PS_bins%>%summarise(total=n()),PS_bins%>%filter(FTR=="D")%>%summarise(draw=n()))
+PS_estimated[is.na(PS_estimated)] <- 0
+PS_estimated<-PS_estimated%>%mutate(EstimatedProbability=draw/total)
+
+PS_filtered_drawplot_binned+
+  geom_point(data=PS_estimated,aes(x=bin_PS,y=EstimatedProbability))
+
+bias_PS<-merge(x = PS_bins[ , c("PSD_np", "bin_PS")],y = PS_estimated[ , c("EstimatedProbability", "bin_PS")], by = "bin_PS", all.x=TRUE)
+
+bias_PS<-bias_PS%>%mutate(is_bias=ifelse(EstimatedProbability-PSD_np>0,1,0))%>%group_by(bin_PS)%>%summarise(bias=sum(is_bias))
+
+ggplot(data=bias_PS,aes(x=bin_PS,y=bias))+
+  geom_line(color="grey")+
+  geom_point(shape=21,color="black",fill="lime green",size=6)+
+  scale_x_continuous(breaks=seq(from=-0.9,to=0.9,by=0.2))+
+  scale_y_continuous(breaks=seq(from=0,to=200,by=10))+
+  labs(title="Pinnacle",
+       y="Bias(Number of Matches)",
+       x="Bins")
+
+
+```
+
+
+*Total Bias for Pinnacle*
+
+```{r message=FALSE, warning=FALSE}
+bias_PS%>%summarise(total_bias=sum(bias))
+
+```
+
+## Comments about the Analysis
+
+*Bet365*  
+
+Bins that have the highest biases             : 6th and 7th  
+Total bias                                    : 286  
+Ratio (Total Bias/Total Number of Matches)    : 0.39   
+
+*BetAndWin*  
+
+Bins that have the highest biases             : 5th and 6th  
+Total bias                                    : 289  
+Ratio (Total Bias/Total Number of Matches)    : 0.39   
+
+*Some Bookmaker*  
+
+Bins that have the highest biases             : 5th and 6th   
+Total bias                                    : 278  
+Ratio (Total Bias/Total Number of Matches)    : 0.38  
+
+*Pinnacle*  
+
+Bins that have the highest biases             : 6th and 8th  
+Total bias                                    : 269  
+Ratio (Total Bias/Total Number of Matches)    : 0.36  
+
+From the results, the number of matches whose odds are not well proposed is high again in 6th range for all bookmakers. The number is also high in 7th, 5th and 8th bins similarly.  
+In addition, the bias ratios of Bet365 and BetAndWin are the highest ones.  
+The most interesting result can be that all the bias ratios increase when the matches in which red cards are showed are eliminated. That is, if there is no red card in a match, bias ratios increase and it is more possible to make money in the long run.
+
+
+
+
