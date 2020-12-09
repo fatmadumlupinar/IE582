@@ -6,5 +6,12 @@
 
 ### Homework 1
 
+[Homework 1 Description](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/HW1/IE582_Fall20_Homework1.pdf) 
+
 [Here](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/HW1/IE582_HW1.html) is my homework 1. You can access the R codes from this [RMD file](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/HW1/IE582_HW1.Rmd)
  
+ ### Homework 2
+ 
+ [Homework 2 Description](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/HW2/IE582_Fall20_Homework2.pdf) 
+ 
+[Here]() is my homework 1. You can access the R codes from this [R Script]()
