@@ -14,4 +14,4 @@
  
 [Homework 2 Description](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/HW2/IE582_Fall20_Homework2.pdf) 
  
-[Here](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/HW2/IE582_HW2.html) is my homework 2. You can access the R codes from this [R Script](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/HW2/HW2.R)
+[Here]() is my homework 2. You can access the R codes from this [R Script]()
