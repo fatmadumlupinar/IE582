@@ -1,0 +1,258 @@
+---
+title: "IE582 Fall"
+author: "Fatma Nur Dumlupınar"
+date: "01 01 2021"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    number_sections: yes
+    code_folding: hide
+    theme: journal
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+subtitle: Homework 3
+---
+
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+library(tidyverse)
+library(glmnet)
+library(Matrix)
+library(MLmetrics)
+library(penalized)
+library(ggplot2)
+
+ElectricityConsumption<-read.csv("data/GercekZamanliTuketim-01012016-01122020.csv",sep=",")
+
+ElectricityConsumption<-ElectricityConsumption%>%
+  rename(Date=Tarih, Hour=Saat,Consumption_MWh="Tüketim.Miktarı..MWh.")%>%
+  mutate(DateTime=as.POSIXct(paste(Date, Hour), format="%d.%m.%Y %H:%M"),
+         Date=as.Date(Date,format="%d.%m.%Y"))
+
+ElectricityConsumption$Consumption_MWh=as.numeric(gsub("\\,",".",gsub("\\.", "", ElectricityConsumption$Consumption_MWh)))
+
+```
+
+# PART A
+
+## Naive Approaches
+
+```{r message=FALSE, warning=FALSE}
+lag_48<-lag(ElectricityConsumption$Consumption_MWh,n=48)
+lag_168<-lag(ElectricityConsumption$Consumption_MWh,n=168)
+  
+ElectricityConsumption_longf<-cbind(ElectricityConsumption,lag_48,lag_168) 
+
+ConsumptionTest_LongF<-ElectricityConsumption_longf%>%
+  filter(Date>= as.Date("2020-11-01"))   
+
+ConsumptionTrain_LongF<-ElectricityConsumption_longf%>%
+  filter(Date< as.Date("2020-11-01"))%>%
+  filter(Date!=as.Date("2016-03-27"))
+ 
+```
+
+There are 42384 hourly instances in the data. However, since the first lagged values are NA, the first 168 rows are not considered in the models. That is, models will be established using 42216 instances.
+
+**Lag 48**
+
+```{r message=FALSE, warning=FALSE}
+print(paste("MAPE of naive approach with lag 48: " ,MAPE(ConsumptionTest_LongF$Consumption_MWh,ConsumptionTest_LongF$lag_48 )))
+
+MAPE_naive48<-MAPE(ConsumptionTest_LongF$Consumption_MWh,ConsumptionTest_LongF$lag_48 )
+
+actual<-ConsumptionTest_LongF$Consumption_MWh
+residual<-ConsumptionTest_LongF$Consumption_MWh-ConsumptionTest_LongF$lag_48 
+AbsPercError_48<-abs(residual/actual)
+print("Summary of Absolute Percentage Errors for the naive approach with lag 48:")
+print(summary(AbsPercError_48))
+
+```
+
+
+**Lag 168**
+
+```{r message=FALSE, warning=FALSE}
+print(paste("MAPE of naive approach with lag 168: " ,MAPE(ConsumptionTest_LongF$Consumption_MWh,ConsumptionTest_LongF$lag_168 )))
+
+MAPE_naive168<-MAPE(ConsumptionTest_LongF$Consumption_MWh,ConsumptionTest_LongF$lag_168 )
+
+actual<-ConsumptionTest_LongF$Consumption_MWh
+residual<-ConsumptionTest_LongF$Consumption_MWh-ConsumptionTest_LongF$lag_168 
+AbsPercError_168<-abs(residual/actual)
+print("Summary of Absolute Percentage Errors for the naive approach with lag 168:")
+print(summary(AbsPercError_168))
+
+```
+
+In the prediction of the next day, the data of the previous week gives a better result than the data of two days ago because the MAPE of lag 168 is visibly less than the MAPE of lag 48.
+
+# PART B
+
+## Linear Regression
+
+```{r message=FALSE, warning=FALSE}
+fit_lreg=lm(Consumption_MWh~lag_48+lag_168,ConsumptionTrain_LongF[169:42384,c(3,5,6)])
+summary(fit_lreg)
+predicted=predict(fit_lreg,ConsumptionTest_LongF)
+plot(ConsumptionTest_LongF$Consumption_MWh,predicted)
+abline(a=0,b=1,col=2)
+MAPE_lreg_full<-MAPE(ConsumptionTest_LongF$Consumption_MWh,predicted)
+print(paste("MAPE of the linear regression is:" ,MAPE_lreg_full))
+
+actual<-ConsumptionTest_LongF$Consumption_MWh
+residual<-ConsumptionTest_LongF$Consumption_MWh-predicted
+AbsPercError_lreg_full<-abs(residual/actual)
+print("Summary of Absolute Percentage Errors for the linear regression")
+print(summary(AbsPercError_lreg_full))
+ 
+```
+In the linear regression model, both variables turned out to be significant as expected. The MAPE of the model is slightly higher than the one resulting from naive approach with the lag 168, although it is considerably less than the error coming from lag 48.
+
+# PART C
+
+## Linear Regression on hourly basis
+
+Previously, only one linear regression model was created using all the data. This time the dataset will be divided into hourly zones and a linear regression model will be created for each hour. In this way, errors due to hourly seasonality can be overcome.
+
+```{r message=FALSE, warning=FALSE}
+APE_lreg<-c()
+MAPE_lreg<-c()
+for(i in 0:9){
+  fit_lreg=lm(Consumption_MWh~lag_48+lag_168,
+            ConsumptionTrain_LongF[169:42384,]%>%filter(Hour==paste0("0",i,":00")))
+  #print(summary(fit_lreg))
+
+  predicted=predict(fit_lreg,
+                  ConsumptionTest_LongF%>%filter(Hour==paste0("0",i,":00")))
+
+  plot((ConsumptionTest_LongF%>%filter(Hour==paste0("0",i,":00")))$Consumption_MWh,predicted)
+  abline(a=0,b=1,col=2)
+  MAPE_lreg<-append(MAPE_lreg,MAPE((ConsumptionTest_LongF%>%filter(Hour==paste0("0",i,":00")))$Consumption_MWh,predicted))
+  print(paste("MAPE of the linear regression for hour",i,"is:",MAPE_lreg[i+1]))
+
+  actual<-(ConsumptionTest_LongF%>%filter(Hour==paste0("0",i,":00")))$Consumption_MWh
+  residual<-(ConsumptionTest_LongF%>%filter(Hour==paste0("0",i,":00")))$Consumption_MWh-predicted
+  AbsPercError<-abs(residual/actual)
+  APE_lreg<-append(APE_lreg,AbsPercError)
+  print(paste("Summary of Absolute Percentage Errors for the linear regression when Hour is equal to",i,":"))
+  print(summary(AbsPercError))
+  
+}
+
+for(i in 10:23){
+  fit_lreg=lm(Consumption_MWh~lag_48+lag_168,
+              ConsumptionTrain_LongF[169:42384,]%>%filter(Hour==paste0(i,":00")))
+  #print(summary(fit_lreg))
+  predicted=predict(fit_lreg,
+                    ConsumptionTest_LongF%>%filter(Hour==paste0(i,":00")))
+  plot((ConsumptionTest_LongF%>%filter(Hour==paste0(i,":00")))$Consumption_MWh,predicted)
+  abline(a=0,b=1,col=2)
+  MAPE_lreg<-append(MAPE_lreg,MAPE((ConsumptionTest_LongF%>%filter(Hour==paste0(i,":00")))$Consumption_MWh,predicted))
+  print(paste("MAPE of the linear regression for hour",i,"is:",MAPE_lreg[i+1]))
+  
+  actual<-(ConsumptionTest_LongF%>%filter(Hour==paste0(i,":00")))$Consumption_MWh
+  residual<-(ConsumptionTest_LongF%>%filter(Hour==paste0(i,":00")))$Consumption_MWh-predicted
+  AbsPercError<-abs(residual/actual)
+  print(paste("Summary of Absolute Percentage Errors for the linear regression when Hour is equal to",i,":"))
+  print(summary(AbsPercError))
+  APE_lreg<-append(APE_lreg, AbsPercError)
+}
+
+ print("Summary of MAPE for the hourly linear regression:")
+ print(summary(MAPE_lreg))
+
+```
+Comparing the performance of models applied to time zones, it is seen that less error occurs at night. MAPE values are higher for hours from 8 am to 5 pm.
+
+# PART D
+
+## Lasso Regression
+
+```{r message=FALSE, warning=FALSE}
+ConsumptionTrain_WideF<-ConsumptionTrain_LongF[169:42360,-4]%>%
+  pivot_wider(id_cols = "Date",names_from=Hour,values_from=c(lag_48,lag_168,Consumption_MWh))
+
+ConsumptionTrain_WideF<-ConsumptionTrain_WideF%>%unnest(-1)
+set.seed(1)
+ConsumptionTest_WideF<-ConsumptionTest_LongF[,-4]%>%
+  pivot_wider(id_cols = "Date",names_from=Hour,values_from=c(lag_48,lag_168,Consumption_MWh))
+ConsumptionTest_WideF<-ConsumptionTest_WideF%>%unnest(-1)
+MAPE_lasso<-c()
+APE_lasso<-c()
+for (i in 50:73){
+  print(paste("Lasso Regression for Hour",i-50))
+  cvfit=cv.glmnet(as.matrix(ConsumptionTrain_WideF[,2:49]),as.matrix(ConsumptionTrain_WideF[,i]),family='gaussian',nfolds=10)
+  print(cvfit)
+  plot(cvfit)
+  print(coef(cvfit,s="lambda.min"))
+#  the model with best lambda value identified
+  lasso_best <- glmnet(as.matrix(ConsumptionTrain_WideF[,2:49]), 
+                       as.matrix(ConsumptionTrain_WideF[,i]), 
+                     alpha = 1, 
+                     lambda = cvfit$lambda.min)
+
+  pred <- predict(lasso_best, s = cvfit$lambda.min, newx = as.matrix(ConsumptionTest_WideF[,2:49]))
+
+ MAPE_lasso<-append(MAPE_lasso,MAPE(pred, as.matrix(ConsumptionTest_WideF[,i])))
+ print(paste("MAPE of the lasso regression for hour",(i-50),"is:",MAPE_lasso[i-49]))
+ 
+ actual<-as.matrix(ConsumptionTest_WideF[,i])
+  residual<-as.matrix(ConsumptionTest_WideF[,i])-pred
+  AbsPercError<-abs(residual/actual)
+  APE_lasso<-append(APE_lasso,AbsPercError)
+  print(paste("Summary of Absolute Percentage Errors for the lasso regression when Hour is equal to",(i-50),":"))
+      
+  print(summary(AbsPercError))
+
+}
+
+  print("Summary of MAPE for the hourly lasso regression:")
+        
+  print(summary(MAPE_lasso))
+
+```
+
+
+Looking at the MAPE, it is seen that the best result is coming from lasso regression compared to other models. Similar to the hour-based linear regression, it is observed that the model error increases between the hours 8-17 in lasso regression. 
+
+The feature number used, that is, the total number of coefficients that are not 0, does not seem to depend on the time zone. 
+
+The number of nonzero coefficients would be less in general if lambda.1se was chosen. So the number of variables used by lambda.min is higher than lambda.1se, which increases complexity. Still, lambda.min is used to reduce the MAPE. Lambda.min takes value between 0.24 and 5.92.
+
+
+# PART F
+
+## Comparison of Results
+
+**Boxplots with MAPE values**
+
+Models were built on an hourly basis in part c and d, 24 performance results were obtained only in these parts. However, in other model types, only one model was established using all data. Therefore, one MAPE has been obtained. For this reason, it is possible to draw a boxplot only for lasso and linear regression using MAPE values.
+
+```{r message=FALSE, warning=FALSE}
+MAPE_total<-data.frame(MAPE_naive48,MAPE_naive168,MAPE_lreg_full,MAPE_lreg,MAPE_lasso)
+MAPE_total<-MAPE_total%>%pivot_longer(.,cols=-c(),names_to="Model Type",values_to="MAPE")
+ggplot(MAPE_total, aes(x=`Model Type`, y=MAPE)) + geom_boxplot() 
+
+```
+
+**Boxplots with APE values**
+
+*Ape:* Absolute Percentage Error
+
+```{r}
+AbsPercError<-data.frame(AbsPercError_48,AbsPercError_168,APE_lreg,APE_lasso,AbsPercError_lreg_full)
+AbsPercError<-AbsPercError%>%pivot_longer(.,cols=-c(),names_to="Model Type",values_to="APE")
+ggplot(AbsPercError, aes(x=`Model Type`, y=APE)) + geom_boxplot() 
+
+```
+
+When the boxplots showing the distribution of MAPE values are examined, it is clear that lasso regression gives the best result and the worst result is reached with the naive approach with lag 48. It is not surprising that lasso regression works better, as the hourly electricity usage values during a day are interrelated. Lasso regression performs better as it penalizes the correlation between features, namely hourly consumption. Another result is that linear regression models established on an hourly basis give a better result than the linear regression model established using all data. The reason for this is the hourly seasonality. However, in general I can say it is not worth building linear regression model because it does not give a good result even as the naive approach with lag 168.
+
+
+# Appendices
+
+ - *1.* [Rmd file](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/HW3/IE582_HW3.Rmd) for the codes.
