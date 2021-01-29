@@ -1,0 +1,303 @@
+---
+title: "IE582 Fall"
+author: "Fatma Nur Dumlupınar"
+date: "29 01 2021"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    number_sections: yes
+    code_folding: hide
+    theme: journal
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+subtitle: Homework 4
+---
+
+```{r message=FALSE, warning=FALSE}
+library(data.table)
+library(farff)
+library(glmnet)
+library(caTools)
+library(caret)
+library(e1071)
+library(MLmetrics)
+library(dplyr)
+
+```
+
+
+# Cervical Cancer Data Set
+
+
+
+```{r message=FALSE, warning=FALSE}
+CervicalCancer<-read.csv("data/CervicalCancer/risk_factors_cervical_cancer.csv")  #imbalance
+CervicalCancer<-CervicalCancer[,-c(33,34,35)]
+
+for(i in 1:32){
+  CervicalCancer[,i]<-as.numeric(CervicalCancer[,i])
+  CervicalCancer[is.na(CervicalCancer[,i]), i] <- mean(CervicalCancer[,1], na.rm = TRUE)
+}
+
+str(CervicalCancer)
+
+#####Cervical - imbalanced
+
+spl=sample.split(CervicalCancer$Biopsy, SplitRatio = 0.75)
+CervicalCancerTrain=subset(CervicalCancer,spl==TRUE)
+CervicalCancerTest=subset(CervicalCancer,spl==FALSE)
+table(factor(CervicalCancer$Biopsy))
+
+```
+
+## Penalized Regression Approaches (RPA)
+
+```{r message=FALSE, warning=FALSE}
+####PRA######################################
+
+PRAmodel_CervicalC<- cv.glmnet(as.matrix(CervicalCancerTrain[,-33]),as.factor(CervicalCancerTrain$Biopsy), 
+                               alpha = 1,nfolds=10,
+                               type.measure='class',family="binomial")
+PRAmodel_CervicalC
+
+plot(PRAmodel_CervicalC)
+
+CervicalCPredicted_RPA<-predict(PRAmodel_CervicalC,as.matrix(CervicalCancerTest[,-33]),
+                                type = "class",s=PRAmodel_CervicalC$lambda.min)
+
+CervicalCPredicted_RPA_Train<-predict(PRAmodel_CervicalC,as.matrix(CervicalCancerTrain[,-33]),
+                                type = "class",s=PRAmodel_CervicalC$lambda.min)
+
+
+CVError_PRA_CervicalC<-min(PRAmodel_CervicalC$cvm)
+
+CM_PRA_CervicalC<-table(as.factor(CervicalCancerTest$Biopsy),CervicalCPredicted_RPA)
+
+Acc_PRA_CervicalC <- sum(diag(CM_PRA_CervicalC)) / sum(CM_PRA_CervicalC)
+
+CM_PRA_CervicalC_Train<-table(as.factor(CervicalCancerTrain$Biopsy),CervicalCPredicted_RPA_Train)
+
+Acc_PRA_CervicalC_Train <- sum(diag(CM_PRA_CervicalC_Train)) / sum(CM_PRA_CervicalC_Train)
+
+```
+
+## Random Forests (RF)
+
+```{r message=FALSE, warning=FALSE}
+######################RF#####################
+
+
+fitControl=trainControl(method = "cv",
+                        number = 5,
+                        search="grid")    
+
+RFtuneGrid=expand.grid(mtry = c(5,15,25))
+# the minimal number of observations per tree leaf=5, number of tree J=500,
+
+RFmodel_CervicalC <- train(as.factor(Biopsy) ~ ., 
+                           data=as.matrix(CervicalCancerTrain), 
+                           method="rf",
+                           metric="Accuracy",
+                           ntree =500,nodesize=5,
+                           trControl=fitControl,
+                           tuneGrid = RFtuneGrid)
+
+CervicalCPredicted_RF<-predict(RFmodel_CervicalC,as.matrix(CervicalCancerTest))
+
+TAcc_RF_CervicalC<-max(RFmodel_CervicalC$results$Accuracy)
+
+CM_RF_CervicalC<-table(as.factor(CervicalCancerTest$Biopsy),CervicalCPredicted_RF)
+Acc_RF_CervicalC <- sum(diag(CM_RF_CervicalC)) / sum(CM_RF_CervicalC)
+
+```
+
+## Decision Trees (DT)
+
+```{r message=FALSE, warning=FALSE}
+###################DT################################
+
+
+fitControl=trainControl(method = "cv",
+                        number = 5,
+                        search="grid") 
+
+minbucket=0
+DTtuneGrid<-expand.grid(cp = c(0.001,0.01, 0.1))
+
+Results_DT_CervicalC<-data.frame()
+
+for (minbucket in c(5,10,15)){
+  
+  DTmodel_CervicalC <- train(factor(Biopsy) ~ ., 
+                           data=as.matrix(CervicalCancerTrain), 
+                           method="rpart", 
+                           metric="Accuracy",
+                           minbucket =minbucket, 
+                           trControl=fitControl,
+                           tuneGrid = DTtuneGrid)
+  
+  AccCpMinbucket<-DTmodel_CervicalC$results[,c("Accuracy","cp")]
+  AccCpMinbucket$minbucket<-minbucket
+  Results_DT_CervicalC<-rbind(AccCpMinbucket,Results_DT_CervicalC)
+}
+
+res<-Results_DT_CervicalC%>%arrange(desc(Accuracy))%>%head(1)
+res
+
+DTtuneGrid <-  expand.grid(cp =res$cp)
+
+DTmodel_CervicalC_best <- train(factor(Biopsy) ~ ., 
+                           data=as.matrix(CervicalCancerTrain), 
+                           method="rpart", 
+                           metric="Accuracy",
+                           minbucket =res$minbucket, 
+                           trControl=fitControl,
+                           tuneGrid = DTtuneGrid)
+
+
+
+CervicalCPredicted_DT<-predict(DTmodel_CervicalC_best,as.matrix(CervicalCancerTest))
+
+TAcc_DT_CervicalC<-min(DTmodel_CervicalC_best$results$Accuracy)
+
+CM_DT_CervicalC<-table(as.factor(CervicalCancerTest$Biopsy),CervicalCPredicted_DT)
+
+Acc_DT_CercivalC<- sum(diag(CM_DT_CervicalC)) / sum(CM_DT_CervicalC)
+
+
+```
+
+## Stochastic Gradient Boosting (SGB)
+
+```{r message=FALSE, warning=FALSE}
+#####################GBM#############################
+
+fitcontrol =trainControl(method="cv", number=5, search="grid")
+
+GBMtuneGrid=expand.grid(interaction.depth = c(2, 4, 6), 
+                        shrinkage = c(0.05,0.1, 0.15),
+                        n.trees = c(100, 150, 250),
+                        n.minobsinnode = 15)
+
+GBMmodel_CervicalC <- train(as.factor(Biopsy) ~ ., 
+                            data=as.matrix(CervicalCancerTrain), 
+                            method="gbm", 
+                            metric="Accuracy", 
+                            trControl=fitcontrol,
+                            tuneGrid = GBMtuneGrid)
+
+
+CervicalCPredicted_GBM<-predict(GBMmodel_CervicalC,CervicalCancerTest)
+
+TAcc_GBM_CervicalC<-max(GBMmodel_CervicalC$results$Accuracy)
+
+CM_GBM_CervicalC<-table(as.factor(CervicalCancerTest$Biopsy),CervicalCPredicted_GBM)
+Acc_GBM_CervicalC <- sum(diag(CM_GBM_CervicalC)) / sum(CM_GBM_CervicalC)
+GBMmodel_CervicalC$bestTune
+#print(as.matrix(GBMmodel_HDigits$results))
+plot(GBMmodel_CervicalC)
+
+
+
+```
+
+
+## Comparison of the Results
+
+**PRA**
+
+*Cross Validation Error*
+
+```{r message=FALSE, warning=FALSE}
+CVError_PRA_CervicalC
+
+```
+
+*Accuracy-Train*
+
+```{r message=FALSE, warning=FALSE}
+Acc_PRA_CervicalC_Train
+```
+
+*Accuracy-Test*
+
+```{r message=FALSE, warning=FALSE}
+Acc_PRA_CervicalC
+```
+
+*Lambda*
+
+```{r}
+PRAmodel_CervicalC$lambda.min
+```
+
+
+**RF**
+
+*Accuracy-Train* 
+
+```{r message=FALSE, warning=FALSE}
+TAcc_RF_CervicalC
+```
+
+*Accuracy-Test* 
+
+```{r message=FALSE, warning=FALSE}
+Acc_RF_CervicalC
+
+```
+
+*m*
+
+```{r}
+RFmodel_CervicalC$bestTune
+```
+
+
+**DT**
+
+*Accuracy-Train* 
+
+```{r message=FALSE, warning=FALSE}
+TAcc_DT_CervicalC
+
+```
+
+*Accuracy-Test* 
+
+
+```{r message=FALSE, warning=FALSE}
+Acc_DT_CercivalC
+```
+
+*Cp and Minbucket*
+
+```{r}
+res$cp
+res$minbucket
+```
+
+
+**SGB**
+ 
+*Accuracy-Train* 
+
+```{r message=FALSE, warning=FALSE}
+TAcc_GBM_CervicalC
+```
+
+*Accuracy-Test* 
+
+```{r message=FALSE, warning=FALSE}
+Acc_GBM_CervicalC
+```
+
+*Depth, Learning Rate and Number of Trees*
+
+```{r}
+GBMmodel_CervicalC$bestTune
+```
+

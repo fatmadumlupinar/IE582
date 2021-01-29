@@ -1,0 +1,304 @@
+---
+title: "IE582 Fall"
+author: "Fatma Nur Dumlupınar"
+date: "29 01 2021"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    number_sections: yes
+    code_folding: hide
+    theme: journal
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+subtitle: Homework 4
+---
+
+
+
+```{r message=FALSE, warning=FALSE}
+library(data.table)
+library(farff)
+library(glmnet)
+library(caTools)
+library(caret)
+library(e1071)
+library(MLmetrics)
+library(dplyr)
+
+```
+
+
+# Breast Cancer Wisconsin (Diagnostic) Data Set
+
+```{r message=FALSE, warning=FALSE}
+BreastCancer<-fread("data/Breast Cancer Wisconsin (Diagnostic)/wdbc.txt")
+BreastCancer$V1<-as.numeric(BreastCancer$V1)
+BreastCancer$V2<-as.factor(BreastCancer$V2)
+
+
+set.seed(150)
+spl=sample.split(BreastCancer$V2, SplitRatio = 0.8)
+BreastCancerTrain=subset(BreastCancer,spl==TRUE)
+BreastCancerTest=subset(BreastCancer,spl==FALSE)
+BreastCancerTrain<-BreastCancerTrain[,-1]
+BreastCancerTest<-BreastCancerTest[,-1]
+
+BreastCancerTrainTarget<-BreastCancerTrain$V2
+BreastCancerTestTarget<-BreastCancerTest$V2
+BreastCancerTrain<-scale(BreastCancerTrain[,-1])
+BreastCancerTest<-scale(BreastCancerTest[,-1])
+BreastCancerTest<-cbind(BreastCancerTestTarget,BreastCancerTest)
+BreastCancerTrain<-cbind(BreastCancerTrainTarget,BreastCancerTrain)
+BreastCancerTest<-as.data.frame(BreastCancerTest)
+BreastCancerTrain<-as.data.frame(BreastCancerTrain)
+
+table(factor(BreastCancer$V2))
+
+str(BreastCancerTrain)
+
+```
+
+## Penalized Regression Approaches (RPA)
+
+```{r message=FALSE, warning=FALSE}
+PRAmodel_BreastC<- cv.glmnet(as.matrix(BreastCancerTrain[,-1]),
+                             as.factor(BreastCancerTrain$BreastCancerTrainTarget), 
+                             alpha = 1,nfolds=10,
+                             type.measure='class',family="binomial")
+PRAmodel_BreastC
+
+plot(PRAmodel_BreastC)
+
+
+BreastCPredicted_RPA_Train<-predict(PRAmodel_BreastC,as.matrix(BreastCancerTrain[,-1]),
+                              type = "class",s=PRAmodel_BreastC$lambda.min)
+BreastCPredicted_RPA<-predict(PRAmodel_BreastC,as.matrix(BreastCancerTest[,-1]),
+                              type = "class",s=PRAmodel_BreastC$lambda.min)
+
+CVError_PRA_BreastC<-min(PRAmodel_BreastC$cvm)
+
+CM_PRA_BreastC<-table(as.factor(BreastCancerTest$BreastCancerTestTarget),BreastCPredicted_RPA)
+
+Acc_PRA_BreastC <- sum(diag(CM_PRA_BreastC)) / sum(CM_PRA_BreastC)
+
+CM_PRA_BreastC_Train<-table(as.factor(BreastCancerTrain$BreastCancerTrainTarget),BreastCPredicted_RPA_Train)
+
+Acc_PRA_BreastC_Train <- sum(diag(CM_PRA_BreastC_Train)) / sum(CM_PRA_BreastC_Train)
+
+
+```
+
+## Random Forests (RF)
+
+
+```{r message=FALSE, warning=FALSE}
+fitControl=trainControl(method = "cv",
+                        number = 5,
+                        search="grid")    
+
+RFtuneGrid=expand.grid(mtry = c(5,15,25))
+
+RFmodel_BreastC <- train(as.factor(BreastCancerTrainTarget) ~ ., 
+                         data=as.matrix(BreastCancerTrain), 
+                         method="rf",
+                         metric="Accuracy",
+                         ntree =500,nodesize=5,
+                         trControl=fitControl,
+                         tuneGrid = RFtuneGrid)
+
+BreastCPredicted_RF<-predict(RFmodel_BreastC,as.matrix(BreastCancerTest))
+
+TAcc_RF_BreastC<-max(RFmodel_BreastC$results$Accuracy)
+
+CM_RF_BreastC<-table(as.factor(BreastCancerTest$BreastCancerTestTarget),BreastCPredicted_RF)
+Acc_RF_BreastC <- sum(diag(CM_RF_BreastC)) / sum(CM_RF_BreastC)
+```
+
+## Decision Trees (DT)
+
+```{r message=FALSE, warning=FALSE}
+###################DT##############################
+
+
+
+fitControl=trainControl(method = "cv",
+                        number = 5,
+                        search="grid") 
+
+minbucket=0
+DTtuneGrid<-expand.grid(cp = c(0.001,0.01, 0.1))
+
+Results_DT_BreastC<-data.frame()
+
+for (minbucket in c(5,10,15)){
+  
+  DTmodel_BreastC <- train(factor(BreastCancerTrainTarget) ~ ., 
+                           data=as.matrix(BreastCancerTrain), 
+                           method="rpart", 
+                           metric="Accuracy",
+                           minbucket =minbucket, 
+                           trControl=fitControl,
+                           tuneGrid = DTtuneGrid)
+  
+  AccCpMinbucket<-DTmodel_BreastC$results[,c("Accuracy","cp")]
+  AccCpMinbucket$minbucket<-minbucket
+  Results_DT_BreastC<-rbind(AccCpMinbucket,Results_DT_BreastC)
+}
+
+res<-Results_DT_BreastC%>%arrange(desc(Accuracy))%>%head(1)
+res
+
+DTtuneGrid <-  expand.grid(cp =res$cp)
+
+DTmodel_BreastC_best <- train(factor(BreastCancerTrainTarget) ~ ., 
+                           data=as.matrix(BreastCancerTrain), 
+                           method="rpart", 
+                           metric="Accuracy",
+                           minbucket =res$minbucket, 
+                           trControl=fitControl,
+                           tuneGrid = DTtuneGrid)
+
+
+
+BreastCPredicted_DT<-predict(DTmodel_BreastC_best,as.matrix(BreastCancerTest))
+
+TAcc_DT_BreastC<-min(DTmodel_BreastC_best$results$Accuracy)
+
+CM_DT_BreastC<-table(as.factor(BreastCancerTest$BreastCancerTestTarget),BreastCPredicted_DT)
+
+Acc_DT_BreastC<- sum(diag(CM_DT_BreastC)) / sum(CM_DT_BreastC)
+
+
+```
+
+## Stochastic Gradient Boosting (SGB)
+
+
+```{r message=FALSE, warning=FALSE}
+###################GBM##############################
+
+fitcontrol =trainControl(method="cv", number=5, search="grid")
+
+GBMtuneGrid=expand.grid(interaction.depth = c(2, 4, 6), 
+                        shrinkage = c(0.05,0.1, 0.15),
+                        n.trees = c(100, 150, 250),
+                        n.minobsinnode = 15)
+
+GBMmodel_BreastC <- train(as.factor(BreastCancerTrainTarget) ~ ., 
+                          data=as.matrix(BreastCancerTrain), 
+                          method="gbm", 
+                          metric="Accuracy", 
+                          trControl=fitcontrol,
+                          tuneGrid = GBMtuneGrid)
+
+BreastCPredicted_GBM<-predict(GBMmodel_BreastC,BreastCancerTest)
+
+TAcc_GBM_BreastC<-max(GBMmodel_BreastC$results$Accuracy)
+
+CM_GBM_BreastC<-table(as.factor(BreastCancerTest$BreastCancerTestTarget),BreastCPredicted_GBM)
+Acc_GBM_BreastC <- sum(diag(CM_GBM_BreastC)) / sum(CM_GBM_BreastC)
+GBMmodel_BreastC$bestTune
+#print(as.matrix(GBMmodel_HDigits$results))
+plot(GBMmodel_BreastC)
+
+
+```
+
+
+## Comparison of the Results
+
+**PRA**
+
+*Cross Validation Error*
+
+```{r message=FALSE, warning=FALSE}
+CVError_PRA_BreastC
+
+```
+
+*Accuracy-Train*
+
+```{r message=FALSE, warning=FALSE}
+Acc_PRA_BreastC_Train
+```
+
+
+*Accuracy-Test*
+
+```{r message=FALSE, warning=FALSE}
+Acc_PRA_BreastC
+```
+
+*Lambda*
+
+```{r}
+PRAmodel_BreastC$lambda.min
+```
+
+**RF**
+
+*Accuracy-Train* 
+
+```{r message=FALSE, warning=FALSE}
+TAcc_RF_BreastC
+```
+
+*Accuracy-Test* 
+
+```{r message=FALSE, warning=FALSE}
+Acc_RF_BreastC
+
+```
+
+*m*
+
+```{r}
+RFmodel_BreastC$bestTune
+```
+
+**DT**
+
+*Accuracy-Train* 
+
+```{r message=FALSE, warning=FALSE}
+TAcc_DT_BreastC
+
+```
+
+*Accuracy-Test* 
+
+
+```{r message=FALSE, warning=FALSE}
+Acc_DT_BreastC
+```
+
+*Cp and Minbucket*
+
+```{r}
+res$cp
+res$minbucket
+```
+
+**SGB**
+ 
+*Accuracy-Train* 
+
+```{r message=FALSE, warning=FALSE}
+TAcc_GBM_BreastC
+```
+
+*Accuracy-Test* 
+
+```{r message=FALSE, warning=FALSE}
+Acc_GBM_BreastC
+```
+
+*Depth, Learning Rate and Number of Trees*
+
+```{r}
+GBMmodel_BreastC$bestTune
+```
+
