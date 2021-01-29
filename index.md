@@ -21,3 +21,22 @@
 [Homework 3 Description](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/HW3/IE582_Fall2020_Homework3.pdf) 
  
 [Here](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/HW3/IE582_HW3.html) is my homework 3.
+
+### Homework 4
+
+ 
+[Here](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/hw4/BreastC_Report.html) is my study with the data set [Breast Cancer Wisconsin (Diagnostic)](http://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Wisconsin+%28Diagnostic%29).
+
+[Rmd file]((https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/hw4/BreastC_Report.Rmd) ) for the codes.
+
+[Here](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/hw4/CervicalC_Report.html) is my study with the data set [Cervical Cancer](http://archive.ics.uci.edu/ml/datasets/Cervical+cancer+%28Risk+Factors%29).
+
+[Rmd file]((https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/hw4/CervicalC_Report.Rmd) ) for the codes.
+
+[Here](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/hw4/HDigits_Report.html) is my study with the data set [Online News Popularity](http://archive.ics.uci.edu/ml/datasets/Online+News+Popularity).
+
+[Rmd file]((https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/hw4/HDigits_Report.Rmd) ) for the codes.
+
+[Here](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/hw4/ONews.html) is my study with the data set [Optical Recognition of Handwritten Digits](http://archive.ics.uci.edu/ml/datasets/Optical+Recognition+of+Handwritten+Digits).
+
+[Rmd file]((https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/hw4/ONews.Rmd) ) for the codes.
