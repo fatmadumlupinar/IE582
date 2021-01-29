@@ -1,0 +1,285 @@
+---
+title: "IE582 Fall"
+author: "Fatma Nur Dumlupınar"
+date: "29 01 2021"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    number_sections: yes
+    code_folding: hide
+    theme: journal
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+subtitle: Homework 4
+---
+
+```{r message=FALSE, warning=FALSE}
+library(data.table)
+library(farff)
+library(glmnet)
+library(caTools)
+library(caret)
+library(e1071)
+library(MLmetrics)
+library(dplyr)
+```
+
+# Optical Recognition of Handwritten Digits Data Set
+
+```{r message=FALSE, warning=FALSE}
+HandwrittenDigits_test<-fread("data/Optical Recognition of Handwritten Digits Data Set/optdigits_tes.txt")
+HandwrittenDigits_train<-fread("data/Optical Recognition of Handwritten Digits Data Set/optdigits_tra.txt")
+str(HandwrittenDigits_test)  ## multiclass,65
+HandwrittenDigits_test<-HandwrittenDigits_test[,-c(1,40)]
+HandwrittenDigits_train<-HandwrittenDigits_train[,-c(1,40)]
+
+```
+
+## Penalized Regression Approaches (RPA)
+
+```{r message=FALSE, warning=FALSE}
+PRAmodel_hdigits<- cv.glmnet(as.matrix(HandwrittenDigits_train[,1:62]),
+                             as.factor(HandwrittenDigits_train$V65), 
+                             alpha = 1,nfolds=5,
+                             type.measure='class',family="multinomial")
+PRAmodel_hdigits
+
+plot(PRAmodel_hdigits)
+
+HDigitsPredicted_RPA_Train<-predict(PRAmodel_hdigits,as.matrix(HandwrittenDigits_train[,1:62]),
+                              type = "class",s=PRAmodel_hdigits$lambda.min)
+
+HDigitsPredicted_RPA<-predict(PRAmodel_hdigits,as.matrix(HandwrittenDigits_test[,1:62]),
+                              type = "class",s=PRAmodel_hdigits$lambda.min)
+
+CVError_PRA_HDigits<-min(PRAmodel_hdigits$cvm)
+
+CM_PRA_HDigits<-table(as.factor(HandwrittenDigits_test$V65),HDigitsPredicted_RPA)
+
+Acc_PRA_HDigits <- sum(diag(CM_PRA_HDigits)) / sum(CM_PRA_HDigits)
+
+CM_PRA_HDigits_Train<-table(as.factor(HandwrittenDigits_train$V65),HDigitsPredicted_RPA_Train)
+
+Acc_PRA_HDigits_Train <- sum(diag(CM_PRA_HDigits_Train)) / sum(CM_PRA_HDigits_Train)
+```
+
+## Random Forests (RF)
+
+
+```{r message=FALSE, warning=FALSE}
+###Random Forest###################################################
+
+
+fitControl=trainControl(method = "cv",
+                        number = 5,
+                        search="grid")    
+
+RFtuneGrid=expand.grid(mtry = c(5,15,25))
+# the minimal number of observations per tree leaf=5, number of tree J=500,
+RFmodel_HDigits <- train(factor(V65) ~ ., 
+                         data=as.matrix(HandwrittenDigits_train), 
+                         method="rf",
+                         metric="Accuracy",
+                         ntree =500,nodesize=5,
+                         trControl=fitControl,
+                         tuneGrid = RFtuneGrid)
+
+
+HDigitsPredicted_RF<-predict(RFmodel_HDigits,as.matrix(HandwrittenDigits_test))
+
+TAcc_RF_HDigits<-max(RFmodel_HDigits$results$Accuracy)
+
+CM_RF_HDigits<-table(as.factor(HandwrittenDigits_test$V65),HDigitsPredicted_RF)
+Acc_RF_HDigits <- sum(diag(CM_RF_HDigits)) / sum(CM_RF_HDigits)
+
+
+```
+
+## Decision Trees (DT)
+
+
+```{r message=FALSE, warning=FALSE}
+### Decision Tree####################################################
+
+#H Digits
+
+fitControl=trainControl(method = "cv",
+                        number = 5,
+                        search="grid") 
+
+minbucket=0
+DTtuneGrid<-expand.grid(cp = c(0.001,0.01, 0.1))
+
+Results_DT_HDigits<-data.frame()
+  
+for (minbucket in c(5,10,15)){
+  
+  DTmodel_HDigits <- train(factor(V65) ~ ., 
+                           data=as.matrix(HandwrittenDigits_train), 
+                           method="rpart", 
+                           metric="Accuracy",
+                           minbucket =minbucket, 
+                           trControl=fitControl,
+                           tuneGrid = DTtuneGrid)
+  
+  AccCpMinbucket<-DTmodel_HDigits$results[,c("Accuracy","cp")]
+  AccCpMinbucket$minbucket<-minbucket
+  Results_DT_HDigits<-rbind(AccCpMinbucket,Results_DT_HDigits)
+}
+
+res<-Results_DT_HDigits%>%arrange(desc(Accuracy))%>%head(1)
+res
+
+DTtuneGrid <-  expand.grid(cp =res$cp)
+
+DTmodel_HDigits_best <- train(factor(V65) ~ ., 
+                           data=as.matrix(HandwrittenDigits_train), 
+                           method="rpart", 
+                           metric="Accuracy",
+                           minbucket =res$minbucket, 
+                           trControl=fitControl,
+                           tuneGrid = DTtuneGrid)
+
+
+
+HDigitsPredicted_DT<-predict(DTmodel_HDigits_best,as.matrix(HandwrittenDigits_test))
+
+TAcc_DT_HDigits<-min(DTmodel_HDigits_best$results$Accuracy)
+
+CM_DT_HDigits<-table(as.factor(HandwrittenDigits_test$V65),HDigitsPredicted_DT)
+
+Acc_DT_HDigits <- sum(diag(CM_DT_HDigits)) / sum(CM_DT_HDigits)
+
+```
+
+## Stochastic Gradient Boosting (SGB)
+
+
+```{r message=FALSE, warning=FALSE}
+### Gradient Boosting###################################################
+
+fitcontrol =trainControl(method="cv", number=2, search="grid")
+
+GBMtuneGrid=expand.grid(interaction.depth = c(2, 4, 6), 
+                        shrinkage = c(0.05,0.1, 0.15),
+                        n.trees = c(100, 150, 250),
+                        n.minobsinnode = 15)
+
+GBMmodel_HDigits <- train(factor(V65) ~ ., 
+                          data=as.matrix(HandwrittenDigits_train), 
+                          method="gbm", 
+                          metric="Accuracy", 
+                          trControl=fitcontrol,
+                          tuneGrid = GBMtuneGrid)
+
+
+HDigitsPredicted_GBM<-predict(GBMmodel_HDigits,HandwrittenDigits_test)
+
+TAcc_GBM_HDigits<-max(GBMmodel_HDigits$results$Accuracy)
+
+CM_GBM_HDigits<-table(as.factor(HandwrittenDigits_test$V65),HDigitsPredicted_GBM)
+Acc_GBM_HDigits <- sum(diag(CM_RF_HDigits)) / sum(CM_RF_HDigits)
+GBMmodel_HDigits$bestTune
+#print(as.matrix(GBMmodel_HDigits$results))
+plot(GBMmodel_HDigits)
+
+
+
+```
+
+## Comparison of the Results
+
+**PRA**
+
+*Cross Validation Error*
+
+```{r message=FALSE, warning=FALSE}
+CVError_PRA_HDigits
+
+```
+
+*Accuracy-Train*
+
+```{r message=FALSE, warning=FALSE}
+Acc_PRA_HDigits_Train
+```
+
+*Accuracy-Test*
+
+```{r message=FALSE, warning=FALSE}
+Acc_PRA_HDigits
+```
+
+*Lambda*
+
+````{r message=FALSE, warning=FALSE}
+PRAmodel_hdigits$lambda.min
+```
+
+**RF**
+
+*Accuracy-Train* 
+
+```{r message=FALSE, warning=FALSE}
+TAcc_RF_HDigits
+```
+
+*Accuracy-Test* 
+
+```{r message=FALSE, warning=FALSE}
+Acc_RF_HDigits
+
+```
+
+*m*
+
+````{r message=FALSE, warning=FALSE}
+RFmodel_HDigits$bestTune
+```
+
+**DT**
+
+*Accuracy-Train* 
+
+```{r message=FALSE, warning=FALSE}
+TAcc_DT_HDigits
+
+```
+
+*Accuracy-Test* 
+
+
+```{r message=FALSE, warning=FALSE}
+Acc_DT_HDigits
+```
+
+*Cp and Minbucket*
+
+````{r message=FALSE, warning=FALSE}
+res$cp
+res$minbucket
+```
+
+**SGB**
+ 
+*Accuracy-Train* 
+
+```{r message=FALSE, warning=FALSE}
+TAcc_GBM_HDigits
+```
+
+*Accuracy-Test* 
+
+```{r message=FALSE, warning=FALSE}
+Acc_GBM_HDigits
+```
+
+*Depth, Learning Rate and Number of Trees*
+
+````{r message=FALSE, warning=FALSE}
+GBMmodel_HDigits$bestTune
+```
+
