@@ -1,0 +1,295 @@
+---
+title: "IE582 Fall"
+author: "Fatma Nur Dumlupınar"
+date: "29 01 2021"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    number_sections: yes
+    code_folding: hide
+    theme: journal
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+subtitle: Homework 4
+---
+
+```{r message=FALSE, warning=FALSE}
+library(data.table)
+library(farff)
+library(glmnet)
+library(caTools)
+library(caret)
+library(e1071)
+library(MLmetrics)
+library(dplyr)
+
+```
+
+
+# Online News Popularity Data Set
+
+```{r message=FALSE, warning=FALSE}
+OnlineNews<-read.csv("data/Online News Popularity Data Set/OnlineNewsPopularity.csv") #categorical,regression,61
+OnlineNews<-OnlineNews[38644:39644,]
+
+OnlineNews<-OnlineNews[,-1]
+OnlineNews<-OnlineNews[,-1]
+OnlineNews$shares<-(scale(OnlineNews$shares))
+spl=sample.split(OnlineNews$shares, SplitRatio = 0.8)
+OnlineNewsTrain=subset(OnlineNews,spl==TRUE)
+OnlineNewsTest=subset(OnlineNews,spl==FALSE)
+str(OnlineNews)
+
+```
+
+## Penalized Regression Approaches (RPA)
+
+
+```{r message=FALSE, warning=FALSE}
+###PRA###########################################################
+
+PRAmodel_ONews<- cv.glmnet(as.matrix(OnlineNewsTrain[,1:58]),
+                           OnlineNewsTrain$shares,
+                           alpha = 1,nfolds=10,
+                           family="gaussian")
+PRAmodel_ONews
+
+plot(PRAmodel_ONews)
+
+ONewsPredicted_RPA_Train<-predict(PRAmodel_ONews,as.matrix(OnlineNewsTrain[,1:58]),
+                            s=PRAmodel_ONews$lambda.min)
+
+ONewsPredicted_RPA<-predict(PRAmodel_ONews,as.matrix(OnlineNewsTest[,1:58]),
+                            s=PRAmodel_ONews$lambda.min)
+
+CVError_PRA_ONews<-min(PRAmodel_ONews$cvm)
+
+RMSE_PRA_ONews<-RMSE(OnlineNewsTest$shares,ONewsPredicted_RPA)
+RMSE_PRA_ONews_Train<-RMSE(OnlineNewsTrain$shares,ONewsPredicted_RPA_Train)
+
+```
+
+## Random Forests (RF)
+
+```{r message=FALSE, warning=FALSE}
+###RF#########################################################
+
+
+fitControl=trainControl(method = "cv",
+                        number = 5,
+                        search="grid")    
+
+RFtuneGrid=expand.grid(mtry = c(5,15,25))
+# the minimal number of observations per tree leaf=5, number of tree J=500,
+RFmodel_ONews <- train( shares~ ., 
+                        data=as.matrix(OnlineNewsTrain), 
+                        method="rf",
+                        metric="RMSE",
+                        ntree =500,nodesize=5,
+                        trControl=fitControl,
+                        tuneGrid = RFtuneGrid)
+
+ONewsPredicted_RF<-predict(RFmodel_ONews,as.matrix(OnlineNewsTest))
+
+CVError_RF_ONews<-min(RFmodel_ONews$results$RMSE)
+
+RMSE_RF_ONews<-RMSE(OnlineNewsTest$shares,ONewsPredicted_RF)
+
+print(RFmodel_ONews)
+
+
+```
+
+## Decision Trees (DT)
+
+```{r message=FALSE, warning=FALSE}
+#############Decision Tree###############
+
+#Online News
+
+fitControl=trainControl(method = "cv",
+                        number = 5,
+                        search="grid") 
+
+DTtuneGrid<-expand.grid(cp = c(0.001,0.01, 0.1))
+
+Results_DT_ONews<-data.frame()
+
+minbucket=0
+
+for (minbucket in c(5,10,15)){
+  
+  DTmodel_ONews <- train(shares ~ ., 
+                           data=as.matrix(OnlineNewsTrain), 
+                           method="rpart", 
+                           metric="RMSE",
+                           minbucket =minbucket, 
+                           trControl=fitControl,
+                           tuneGrid = DTtuneGrid)
+  
+  RMSECpMinbucket<-DTmodel_ONews$results[,c("RMSE","cp")]
+  RMSECpMinbucket$minbucket<-minbucket
+  Results_DT_ONews<-rbind(RMSECpMinbucket,Results_DT_ONews)
+  
+  
+}
+
+res<-Results_DT_ONews%>%arrange((RMSE))%>%head(1)
+res
+
+DTtuneGrid <-  expand.grid(cp =res$cp)
+
+DTmodel_ONews_best <- train(shares ~ ., 
+                       data=as.matrix(OnlineNewsTrain), 
+                       method="rpart", 
+                       metric="RMSE",
+                       minbucket =res$minbucket, 
+                       trControl=fitControl,
+                       tuneGrid = DTtuneGrid)
+
+
+
+ONewsPredicted_DT<-predict(DTmodel_ONews_best,as.matrix(OnlineNewsTest))
+
+CVError_DT_ONews<-min(DTmodel_ONews_best$results$RMSE)
+
+RMSE_DT_ONews<-RMSE(OnlineNewsTest$shares,ONewsPredicted_DT)
+```
+
+## Stochastic Gradient Boosting (SGB)
+
+
+```{r message=FALSE, warning=FALSE}
+#############################GBM###################################
+
+fitcontrol =trainControl(method="cv", number=5, search="grid")
+
+GBMtuneGrid=expand.grid(interaction.depth = c(2, 4, 6), 
+                        shrinkage = c(0.05,0.1, 0.15),
+                        n.trees = c(100, 150, 250),
+                        n.minobsinnode = 15)
+
+GBMmodel_ONews <- train(shares ~ ., 
+                        data=as.matrix(OnlineNewsTrain), 
+                        method="gbm", 
+                        metric="RMSE", 
+                        trControl=fitcontrol,
+                        tuneGrid = GBMtuneGrid)
+
+
+ONewsPredicted_GBM<-predict(GBMmodel_ONews,OnlineNewsTest)
+
+
+TRMSE_GBM_ONews<-min(GBMmodel_ONews$results$RMSE)
+RMSE_GBM_ONews<-RMSE(ONewsPredicted_GBM,OnlineNewsTest$shares)
+
+GBMmodel_ONews$bestTune
+#print(as.matrix(GBMmodel_HDigits$results))
+plot(GBMmodel_ONews)
+```
+
+
+## Comparison of the Results
+
+**PRA**
+
+*Cross Validation Error*
+
+```{r message=FALSE, warning=FALSE}
+CVError_PRA_ONews
+
+```
+
+*RMSE-Train*
+
+
+```{r message=FALSE, warning=FALSE}
+RMSE_PRA_ONews_Train
+```
+
+*RMSE-Test*
+
+```{r message=FALSE, warning=FALSE}
+RMSE_PRA_ONews
+```
+
+
+*Lambda*
+
+```{r}
+PRAmodel_ONews$lambda.min
+```
+
+**RF**
+
+*RMSE-Train* 
+
+```{r message=FALSE, warning=FALSE}
+RMSE_PRA_ONews_Train
+```
+
+*Cross Validation Error*
+
+```{r message=FALSE, warning=FALSE}
+CVError_RF_ONews
+```
+
+*RMSE-Test* 
+
+```{r message=FALSE, warning=FALSE}
+RMSE_RF_ONews
+
+```
+
+*m*
+
+```{r}
+RFmodel_ONews$bestTune
+```
+
+**DT**
+
+*RMSE-Train* 
+
+```{r message=FALSE, warning=FALSE}
+CVError_DT_ONews
+
+```
+
+*RMSE-Test* 
+
+
+```{r message=FALSE, warning=FALSE}
+RMSE_DT_ONews
+```
+
+*Cp and Minbucket*
+
+```{r}
+res$cp
+res$minbucket
+```
+
+**SGB**
+ 
+*RMSE-Train* 
+
+```{r message=FALSE, warning=FALSE}
+TRMSE_GBM_ONews
+```
+
+*RMSE-Test* 
+
+```{r message=FALSE, warning=FALSE}
+RMSE_GBM_ONews
+```
+
+*Depth, Learning Rate and Number of Trees*
+
+```{r}
+GBMmodel_ONews$bestTune
+```
+
