@@ -40,3 +40,12 @@
 [Here](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/hw4/ONews.html) is my study with the data set [Optical Recognition of Handwritten Digits](http://archive.ics.uci.edu/ml/datasets/Optical+Recognition+of+Handwritten+Digits).
 
 [Rmd file]((https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/hw4/ONews.Rmd) ) for the codes.
+
+### Group Project
+
+[Here](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/IE582_Project Report.html) is our report for the project. 
+[Here](https://github.com/mbahadir/582project_files) is the GitHub Repository for notebooks and scripts of the project. Details of the codes can be found at the end of the report. 
+
+
+
+
