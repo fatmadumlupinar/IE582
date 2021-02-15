@@ -44,6 +44,7 @@
 ### Group Project
 
 [Here](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/IE582_Project Report.html) is our report for the project. 
+
 [Here](https://github.com/mbahadir/582project_files) is the GitHub Repository for notebooks and scripts of the project. Details of the codes can be found at the end of the report. 
 
 
