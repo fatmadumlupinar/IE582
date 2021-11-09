@@ -43,11 +43,11 @@
 
 ### Final Exam
 
-[Here](https://https://github.com/fatmadumlupinar/IE582/files/FatmaNurDumlup%C4%B1nar_IE582Final.html) is my take-home final exam. 
+[Here](https://https://github.com/fatmadumlupinar/IE582/gh-pages/files/FatmaNurDumlup%C4%B1nar_IE582Final.html) is my take-home final exam. 
 
 ### Group Project
 
-[Here](https://bu-ie-582.github.io/fall20-fatmadumlupinar/gh-pages/files/IE582_Project Report.html) is our report for the project. 
+[Here](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/IE582_Project Report.html) is our report for the project. 
 
 [Here](https://github.com/mbahadir/582project_files) is the GitHub Repository for notebooks and scripts of the project. Details of the codes can be found at the end of the report. 
 
