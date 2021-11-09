@@ -41,6 +41,10 @@
 
 [Rmd file]((https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/hw4/ONews.Rmd) ) for the codes.
 
+### Final Exam
+
+[Here](https://https://github.com/fatmadumlupinar/IE582/blob/gh-pages/files/FatmaNurDumlup%C4%B1nar_IE582Final.html) is my take-home final exam. 
+
 ### Group Project
 
 [Here](https://bu-ie-582.github.io/fall20-fatmadumlupinar/files/IE582_Project Report.html) is our report for the project. 
