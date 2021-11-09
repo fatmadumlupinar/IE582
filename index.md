@@ -43,7 +43,7 @@
 
 ### Final Exam
 
-[Here](https://https://github.com/fatmadumlupinar/IE582/blob/gh-pages/files/FatmaNurDumlup%C4%B1nar_IE582Final.html) is my take-home final exam. 
+[Here](https://https://github.com/fatmadumlupinar/IE582/files/FatmaNurDumlup%C4%B1nar_IE582Final.html) is my take-home final exam. 
 
 ### Group Project
 
